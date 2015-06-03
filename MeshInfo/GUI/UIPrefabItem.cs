@@ -6,26 +6,27 @@ using ColossalFramework.Globalization;
 
 namespace MeshInfo.GUI
 {
-    public class UIPrefabItem : UIPanel, IComparable
+    public class UIPrefabItem : UIPanel
     {
         private UILabel m_name;
-        private UILabel m_vertices;
+        private UILabel m_triangles;
+        private UILabel m_lodTriangles;
+        private UILabel m_weight;
+        private UILabel m_lodWeight;
         private UILabel m_textureSize;
+        private UITextField m_steamID;
         private UIPanel m_background;
 
         private PrefabInfo m_prefab;
-        private int m_triangles;
 
         public PrefabInfo prefab
         {
             get { return m_prefab; }
             set {
-                m_prefab = value;
+                if (m_prefab == value) return;
 
-                if (m_name == null) return;
-                m_name.text = GetLocalizedName(m_prefab);
-                m_vertices.text = GetTriangles(m_prefab);
-                m_textureSize.text = GetTextureSize(m_prefab);
+                m_prefab = value;
+                Refresh();
             }
         }
 
@@ -37,7 +38,7 @@ namespace MeshInfo.GUI
                 {
                     m_background = AddUIComponent<UIPanel>();
                     m_background.width = width;
-                    m_background.height = 40;
+                    m_background.height = 40f;
                     m_background.relativePosition = Vector2.zero;
 
                     m_background.zOrder = 0;
@@ -54,124 +55,137 @@ namespace MeshInfo.GUI
             isVisible = true;
             canFocus = true;
             isInteractive = true;
-            width = parent.width;
-            height = 40;
+            width = 670f;
+            height = 40f;
 
             m_name = AddUIComponent<UILabel>();
             m_name.textScale = 0.9f;
-            m_name.text = GetLocalizedName(m_prefab);
-            m_name.relativePosition = new Vector3(10, 13);
-            
-            m_vertices = AddUIComponent<UILabel>();
-            m_vertices.textScale = 0.9f;
-            m_vertices.text = GetTriangles(m_prefab);
-            m_vertices.width = 90;
-            m_vertices.textAlignment = UIHorizontalAlignment.Right;
-            m_vertices.relativePosition = new Vector3(480, 13);
+            m_name.width = 300f;
+            m_name.height = height;
+            m_name.textAlignment = UIHorizontalAlignment.Left;
+            m_name.pivot = UIPivotPoint.MiddleLeft;
+            m_name.relativePosition = new Vector3(10f, 0f);
 
             m_textureSize = AddUIComponent<UILabel>();
             m_textureSize.textScale = 0.9f;
-            m_textureSize.text = GetTextureSize(m_prefab);
-            m_textureSize.width = 90;
-            m_vertices.textAlignment = UIHorizontalAlignment.Right;
-            m_textureSize.relativePosition = new Vector3(580, 13);
+            m_textureSize.width = 90f;
+            m_textureSize.height = height;
+            m_textureSize.textAlignment = UIHorizontalAlignment.Center;
+            m_textureSize.pivot = UIPivotPoint.MiddleCenter;
+            m_textureSize.padding = new RectOffset(0, 10, 0, 0);
+            m_textureSize.AlignTo(this, UIAlignAnchor.TopRight);
 
+            m_lodWeight = AddUIComponent<UILabel>();
+            m_lodWeight.textScale = 0.9f;
+            m_lodWeight.width = 50f;
+            m_lodWeight.height = height;
+            m_lodWeight.textAlignment = UIHorizontalAlignment.Center;
+            m_lodWeight.pivot = UIPivotPoint.MiddleCenter;
+            m_lodWeight.relativePosition = m_textureSize.relativePosition - new Vector3(50f, 0f);
+
+            m_weight = AddUIComponent<UILabel>();
+            m_weight.textScale = 0.9f;
+            m_weight.width = 50f;
+            m_weight.height = height;
+            m_weight.textAlignment = UIHorizontalAlignment.Center;
+            m_weight.pivot = UIPivotPoint.MiddleCenter;
+            m_weight.relativePosition = m_lodWeight.relativePosition - new Vector3(50f, 0f);
+
+            m_lodTriangles = AddUIComponent<UILabel>();
+            m_lodTriangles.textScale = 0.9f;
+            m_lodTriangles.width = 50f;
+            m_lodTriangles.height = height;
+            m_lodTriangles.textAlignment = UIHorizontalAlignment.Center;
+            m_lodTriangles.pivot = UIPivotPoint.MiddleCenter;
+            m_lodTriangles.relativePosition = m_weight.relativePosition - new Vector3(50f, 0f);
+
+            m_triangles = AddUIComponent<UILabel>();
+            m_triangles.textScale = 0.9f;
+            m_triangles.width = 80f;
+            m_triangles.height = height;
+            m_triangles.textAlignment = UIHorizontalAlignment.Center;
+            m_triangles.pivot = UIPivotPoint.MiddleCenter;
+            m_triangles.relativePosition = m_lodTriangles.relativePosition - new Vector3(80f, 0f);
+            
+            m_steamID = UIUtils.CreateTextField(this);
+            m_steamID.normalBgSprite = null;
+            m_steamID.padding = new RectOffset(5, 5, 14, 14);
+            m_steamID.textScale = 0.8f;
+            m_steamID.height = 40;
+            m_steamID.textColor = new Color32(128, 128, 128, 255);
+            m_steamID.selectionBackgroundColor = new Color32(0, 0, 0, 128);
+            m_steamID.numericalOnly = true;
+            m_steamID.relativePosition = m_triangles.relativePosition - new Vector3(100f, 0f);
+
+            m_steamID.eventTextChanged += (c, t) =>
+            {
+                if (m_prefab.name.Contains("."))
+                    m_steamID.text = m_prefab.name.Substring(0, m_prefab.name.IndexOf(".") - 1);
+            };
+
+            Refresh();
         }
 
-        public int CompareTo(object o)
+        public override void OnDestroy()
         {
-            if (o == null || !(o is UIPrefabItem)) return 1;
+            base.OnDestroy();
 
-            return (o as UIPrefabItem).m_triangles - m_triangles;
+            Destroy(m_name);
+            Destroy(m_triangles);
+            Destroy(m_lodTriangles);
+            Destroy(m_weight);
+            Destroy(m_lodWeight);
+            Destroy(m_textureSize);
+            Destroy(m_steamID);
+            Destroy(m_background);
         }
 
-        private string GetLocalizedName(PrefabInfo prefab)
+        private void Refresh()
         {
-            string localizedName = Locale.GetUnchecked("VEHICLE_TITLE", prefab.name);
+            if (m_name == null) return;
 
-            if (localizedName.StartsWith("VEHICLE_TITLE"))
+            m_name.text = MeshInfo.GetLocalizedName(m_prefab);
+
+            if (m_prefab.name.Contains("."))
             {
-                localizedName = prefab.name;
-                // Removes the steam ID and trailing _Data from the name
-                localizedName = localizedName.Substring(localizedName.IndexOf('.') + 1).Replace("_Data", "");
+                int id;
+                m_steamID.text = m_prefab.name.Substring(0, m_prefab.name.IndexOf(".") - 1);
+                m_steamID.isVisible = Int32.TryParse(m_steamID.text, out id);
             }
+            else
+                m_steamID.isVisible = false;
 
-            return localizedName;
+            int triangles;
+            int lodTriangles;
+            float weight;
+            float lodWeight;
+            MeshInfo.GetTriangleInfo(prefab, out triangles, out lodTriangles, out weight, out lodWeight);
+
+            m_triangles.text = (triangles > 0) ? triangles.ToString("N0") : "-";
+            m_lodTriangles.text = (lodTriangles > 0) ? lodTriangles.ToString("N0") : "-";
+
+            m_weight.text = (weight > 0) ? weight.ToString("N2") : "-";
+            if (weight >= 200)
+                m_weight.textColor = new Color32(255, 0, 0, 255);
+            else if (weight >= 100)
+                m_weight.textColor = new Color32(255, 255, 0, 255);
+            else if (weight > 0)
+                m_weight.textColor = new Color32(0, 255, 0, 255);
+            else
+                m_weight.textColor = new Color32(255, 255, 255, 255);
+
+            m_lodWeight.text = (lodWeight > 0) ? lodWeight.ToString("N2") : "-";
+            if (lodWeight >= 10)
+                m_lodWeight.textColor = new Color32(255, 0, 0, 255);
+            else if (lodWeight >= 5)
+                m_lodWeight.textColor = new Color32(255, 255, 0, 255);
+            else if (lodWeight > 0)
+                m_lodWeight.textColor = new Color32(0, 255, 0, 255);
+            else
+                m_lodWeight.textColor = new Color32(255, 255, 255, 255);
+
+            Vector2 textureSize = MeshInfo.GetTextureSize(m_prefab);
+            m_textureSize.text = (textureSize != Vector2.zero) ? textureSize.x + "x" + textureSize.y : "-";
         }
-
-        private string GetTriangles(PrefabInfo prefab)
-        {
-            Mesh mesh = null;
-            Mesh lodmesh = null;
-
-            if (prefab is BuildingInfo)
-            {
-                mesh = (prefab as BuildingInfo).m_mesh;
-                lodmesh = (prefab as BuildingInfo).m_lodMesh;
-            }
-            else if (prefab is PropInfo)
-            {
-                mesh = (prefab as PropInfo).m_mesh;
-                lodmesh = (prefab as PropInfo).m_lodMesh;
-            }
-            else if (prefab is TreeInfo)
-            {
-                mesh = (prefab as TreeInfo).m_mesh;
-            }
-            else if (prefab is VehicleInfo)
-            {
-                mesh = (prefab as VehicleInfo).m_mesh;
-                lodmesh = (prefab as VehicleInfo).m_lodMesh;
-            }
-
-            if (mesh != null)
-            {
-                if (mesh.isReadable)
-                    m_triangles = mesh.triangles.Length / 3; // A triangle is 3 points right?
-                else
-                    return "N/A";
-
-                if (lodmesh == null)
-                    return m_triangles.ToString();
-                else if (lodmesh.isReadable)
-                    return m_triangles.ToString() + " (" + (lodmesh.triangles.Length / 3).ToString() + ")";
-                else
-                    return m_triangles.ToString();
-            }
-
-            return "N/A";
-        }
-
-
-        private string GetTextureSize(PrefabInfo prefab)
-        {
-            Material material = null;
-            if (prefab is BuildingInfo)
-                material = (prefab as BuildingInfo).m_material;
-            else if (prefab is PropInfo)
-                material = (prefab as PropInfo).m_material;
-            else if (prefab is TreeInfo)
-                material = (prefab as TreeInfo).m_material;
-            else if (prefab is VehicleInfo)
-                material = (prefab as VehicleInfo).m_material;
-
-            if (material != null && material.mainTexture != null)
-                return material.mainTexture.width + "x" + material.mainTexture.height;
-
-            if (prefab is BuildingInfo)
-                material = (prefab as BuildingInfo).m_lodMaterial;
-            else if (prefab is PropInfo)
-                material = (prefab as PropInfo).m_lodMaterial;
-            else if (prefab is TreeInfo)
-                material = (prefab as TreeInfo).m_lodMaterial;
-            else if (prefab is VehicleInfo)
-                material = (prefab as VehicleInfo).m_lodMaterial;
-
-            if (material != null && material.mainTexture != null)
-                return material.mainTexture.width + "x" + material.mainTexture.height;
-
-            return "N/A";
-        }
-
     }
 }

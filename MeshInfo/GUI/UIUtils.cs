@@ -81,7 +81,7 @@ namespace MeshInfo.GUI
             dropDown.disabledBgSprite = "ButtonMenuDisabled";
             dropDown.hoveredBgSprite = "ButtonMenuHovered";
             dropDown.focusedBgSprite = "ButtonMenu";
-            dropDown.listWidth = 250;
+            dropDown.listWidth = 90;
             dropDown.listHeight = 500;
             dropDown.foregroundSpriteMode = UIForegroundSpriteMode.Stretch;
             dropDown.popupColor = new Color32(45, 52, 61, 255);
@@ -112,7 +112,10 @@ namespace MeshInfo.GUI
             button.zOrder = 0;
             button.textScale = 0.8f;
 
-            dropDown.eventSizeChanged += new PropertyChangedEventHandler<Vector2>((c, t) => { button.size = t; });
+            dropDown.eventSizeChanged += new PropertyChangedEventHandler<Vector2>((c, t) =>
+            {
+                button.size = t; dropDown.listWidth = (int)t.x;
+            });
 
             return dropDown;
         }
