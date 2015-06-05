@@ -16,12 +16,12 @@ namespace MeshInfo
 
         public string Description
         {
-            get { return "Hit Ctrl + M to get information about custom asset meshes"; }
+            get { return "Load a save then hit Ctrl + M to get information about asset meshes"; }
         }
         #endregion
         private static GUI.UIMainPanel m_mainPanel;
 
-        public static readonly string version = "1.1";
+        public static readonly string version = "1.1.1";
 
         public static bool stopLoading = false;
                 

@@ -120,7 +120,7 @@ namespace MeshInfo.GUI
             m_steamID.eventTextChanged += (c, t) =>
             {
                 if (m_prefab.name.Contains("."))
-                    m_steamID.text = m_prefab.name.Substring(0, m_prefab.name.IndexOf(".") - 1);
+                    m_steamID.text = m_prefab.name.Substring(0, m_prefab.name.IndexOf("."));
             };
 
             Refresh();
@@ -149,7 +149,7 @@ namespace MeshInfo.GUI
             if (m_prefab.name.Contains("."))
             {
                 int id;
-                m_steamID.text = m_prefab.name.Substring(0, m_prefab.name.IndexOf(".") - 1);
+                m_steamID.text = m_prefab.name.Substring(0, m_prefab.name.IndexOf("."));
                 m_steamID.isVisible = Int32.TryParse(m_steamID.text, out id);
             }
             else
