@@ -6,7 +6,7 @@ using ColossalFramework.Globalization;
 
 namespace MeshInfo.GUI
 {
-    public class UIPrefabItem : UIPanel
+    public class UIPrefabItem : UIPanel, IRowUI
     {
         private UILabel m_name;
         private UILabel m_triangles;
@@ -17,18 +17,7 @@ namespace MeshInfo.GUI
         private UITextField m_steamID;
         private UIPanel m_background;
 
-        private PrefabInfo m_prefab;
-
-        public PrefabInfo prefab
-        {
-            get { return m_prefab; }
-            set {
-                if (m_prefab == value) return;
-
-                m_prefab = value;
-                Refresh();
-            }
-        }
+        private MeshData m_meshData;
 
         public UIPanel background
         {
@@ -119,11 +108,9 @@ namespace MeshInfo.GUI
 
             m_steamID.eventTextChanged += (c, t) =>
             {
-                if (m_prefab.name.Contains("."))
-                    m_steamID.text = m_prefab.name.Substring(0, m_prefab.name.IndexOf(".") - 1);
+                if (m_meshData.name.Contains("."))
+                    m_steamID.text = m_meshData.name.Substring(0, m_meshData.name.IndexOf("."));
             };
-
-            Refresh();
         }
 
         public override void OnDestroy()
@@ -140,52 +127,49 @@ namespace MeshInfo.GUI
             Destroy(m_background);
         }
 
-        private void Refresh()
+        public void Display(object prefab, bool isRowOdd)
         {
-            if (m_name == null) return;
+            m_meshData = prefab as MeshData;
 
-            m_name.text = MeshInfo.GetLocalizedName(m_prefab);
+            if (m_meshData == null || m_name == null) return;
 
-            if (m_prefab.name.Contains("."))
-            {
-                int id;
-                m_steamID.text = m_prefab.name.Substring(0, m_prefab.name.IndexOf(".") - 1);
-                m_steamID.isVisible = Int32.TryParse(m_steamID.text, out id);
-            }
-            else
-                m_steamID.isVisible = false;
+            m_name.text = m_meshData.name;
 
-            int triangles;
-            int lodTriangles;
-            float weight;
-            float lodWeight;
-            MeshInfo.GetTriangleInfo(prefab, out triangles, out lodTriangles, out weight, out lodWeight);
+            m_steamID.text = (m_meshData.steamID == null) ? "" : m_meshData.steamID;
+            m_steamID.isVisible = (m_meshData.steamID != null);
 
-            m_triangles.text = (triangles > 0) ? triangles.ToString("N0") : "-";
-            m_lodTriangles.text = (lodTriangles > 0) ? lodTriangles.ToString("N0") : "-";
+            m_triangles.text = (m_meshData.triangles > 0) ? m_meshData.triangles.ToString("N0") : "-";
+            m_lodTriangles.text = (m_meshData.lodTriangles > 0) ? m_meshData.lodTriangles.ToString("N0") : "-";
 
-            m_weight.text = (weight > 0) ? weight.ToString("N2") : "-";
-            if (weight >= 200)
+            m_weight.text = (m_meshData.weight > 0) ? m_meshData.weight.ToString("N2") : "-";
+            if (m_meshData.weight >= 200)
                 m_weight.textColor = new Color32(255, 0, 0, 255);
-            else if (weight >= 100)
+            else if (m_meshData.weight >= 100)
                 m_weight.textColor = new Color32(255, 255, 0, 255);
-            else if (weight > 0)
+            else if (m_meshData.weight > 0)
                 m_weight.textColor = new Color32(0, 255, 0, 255);
             else
                 m_weight.textColor = new Color32(255, 255, 255, 255);
 
-            m_lodWeight.text = (lodWeight > 0) ? lodWeight.ToString("N2") : "-";
-            if (lodWeight >= 10)
+            m_lodWeight.text = (m_meshData.lodWeight > 0) ? m_meshData.lodWeight.ToString("N2") : "-";
+            if (m_meshData.lodWeight >= 10)
                 m_lodWeight.textColor = new Color32(255, 0, 0, 255);
-            else if (lodWeight >= 5)
+            else if (m_meshData.lodWeight >= 5)
                 m_lodWeight.textColor = new Color32(255, 255, 0, 255);
-            else if (lodWeight > 0)
+            else if (m_meshData.lodWeight > 0)
                 m_lodWeight.textColor = new Color32(0, 255, 0, 255);
             else
                 m_lodWeight.textColor = new Color32(255, 255, 255, 255);
 
-            Vector2 textureSize = MeshInfo.GetTextureSize(m_prefab);
-            m_textureSize.text = (textureSize != Vector2.zero) ? textureSize.x + "x" + textureSize.y : "-";
+            m_textureSize.text = (m_meshData.textureSize != Vector2.zero) ? m_meshData.textureSize.x + "x" + m_meshData.textureSize.y : "-";
+
+            if (isRowOdd)
+            {
+                background.backgroundSprite = "UnlockingItemBackground";
+                background.color = new Color32(0, 0, 0, 128);
+            }
+            else
+                background.backgroundSprite = null;
         }
     }
 }

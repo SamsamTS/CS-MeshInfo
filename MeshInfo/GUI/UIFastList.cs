@@ -5,7 +5,7 @@ using System;
 
 namespace MeshInfo.GUI
 {
-    public interface IRow<T>
+    public interface IRowUI
     {
         /// <summary>
         /// Method invoked very often, make sure it is fast
@@ -13,24 +13,43 @@ namespace MeshInfo.GUI
         /// </summary>
         /// <param name="data">What needs to be displayed</param>
         /// <param name="isRowOdd">Use this to display a different look for your odd rows</param>
-        void Display(T data, bool isRowOdd);
+        void Display(object data, bool isRowOdd);
+
+        bool enabled { get; set; }
+        float height { get; set; }
     }
 
-    public class UIFastList<K, T> : UIComponent
-        where K : UIPanel, IRow<T>
+    public class UIFastList : UIComponent
     {
         #region Private members
         private UIPanel m_panel;
         private UIScrollbar m_scrollbar;
-        private FastList<K> m_rows;
-        private FastList<T> m_rowsData;
+        private FastList<IRowUI> m_rows;
+        private FastList<object> m_rowsData;
 
+        private Type m_listType;
         private string m_backgroundSprite;
         private float m_rowHeight = -1;
         private int m_pos = -1;
         #endregion
 
         #region Public
+        /// <summary>
+        /// Use this to create the UIFastList.
+        /// Do NOT use AddUIComponent.
+        /// I had to do that way because MonoBehaviors classes cannot be generic
+        /// </summary>
+        /// <typeparam name="T">The type of the row UI component</typeparam>
+        /// <param name="parent"></param>
+        /// <returns></returns>
+        public static UIFastList Create<T>(UIComponent parent)
+            where T : UIPanel, IRowUI
+        {
+            UIFastList list = parent.AddUIComponent<UIFastList>();
+            list.m_listType = typeof(T);
+            return list;
+        }
+
         public string backgroundSprite
         {
             get { return m_backgroundSprite; }
@@ -45,9 +64,13 @@ namespace MeshInfo.GUI
             }
         }
 
-        public FastList<T> rowsData
+        public FastList<object> rowsData
         {
-            get { return m_rowsData; }
+            get
+            {
+                if (m_rowsData == null) m_rowsData = new FastList<object>();
+                return m_rowsData;
+            }
             set
             {
                 if(m_rowsData != value)
@@ -78,7 +101,7 @@ namespace MeshInfo.GUI
 
             pos = Mathf.Min(pos, m_rowsData.m_size - m_rows.m_size);
             pos = Mathf.Max(pos, 0);
-            if (pos == m_pos) return; // Already at position
+            //if (pos == m_pos) return; // Already at position
 
             m_pos = pos;
 
@@ -86,11 +109,15 @@ namespace MeshInfo.GUI
             {
                 int dataPos = m_pos + i;
                 if (dataPos < m_rowsData.m_size)
+                {
                     m_rows[i].Display(m_rowsData[dataPos], (dataPos % 2) == 1);
+                    m_rows[i].enabled = true;
+                }
                 else
-                    break;
+                    m_rows[i].enabled = false;
             }
 
+            UpdateScrollbar();
             //TODO scroll position
         }
 
@@ -103,7 +130,7 @@ namespace MeshInfo.GUI
                 m_rows[i].enabled = false;
             }
 
-            //TODO Update scrollbar
+            UpdateScrollbar();
         }
         #endregion
 
@@ -112,7 +139,7 @@ namespace MeshInfo.GUI
         {
             base.Start();
 
-            if(enabled) SetupControls();
+            if(isVisible) SetupControls();
         }
 
         public override void OnEnable()
@@ -135,7 +162,7 @@ namespace MeshInfo.GUI
 
             for (int i = 0; i < m_rows.m_size; i++)
             {
-                Destroy(m_rows[i]);
+                Destroy(m_rows[i] as UnityEngine.Object);
             }
         }
 
@@ -143,7 +170,19 @@ namespace MeshInfo.GUI
         {
             base.OnSizeChanged();
 
+            m_scrollbar.height = height;
+            m_scrollbar.trackObject.height = height;
+            m_scrollbar.AlignTo(this, UIAlignAnchor.TopRight);
+
             CheckRows();
+        }
+
+        protected override void OnMouseWheel(UIMouseEventParameter p)
+        {
+            base.OnMouseWheel(p);
+
+            m_pos -= (int)p.wheelDelta;
+            DisplayAt(m_pos);
         }
         #endregion
 
@@ -154,12 +193,12 @@ namespace MeshInfo.GUI
 
             int nbRows = Mathf.FloorToInt(height / m_rowHeight);
 
-            m_panel.width = width - m_scrollbar.width;
+            m_panel.width = width;
             m_panel.height = nbRows * m_rowHeight;
 
             if (m_rows == null)
             {
-                m_rows = new FastList<K>();
+                m_rows = new FastList<IRowUI>();
                 m_rows.SetCapacity(nbRows);
             }
 
@@ -168,7 +207,7 @@ namespace MeshInfo.GUI
                 // Adding missing rows
                 for (int i = m_rows.m_size; i < nbRows; i++)
                 {
-                    m_rows.Add(m_panel.AddUIComponent<K>());
+                    m_rows.Add(m_panel.AddUIComponent(m_listType) as IRowUI);
                     m_rows[i].height = rowHeight;
                 }
             }
@@ -176,12 +215,34 @@ namespace MeshInfo.GUI
             {
                 // Remove excess rows
                 for (int i = nbRows; i < m_rows.m_size; i++)
-                    Destroy(m_rows[i]);
+                    Destroy(m_rows[i] as UnityEngine.Object);
 
                 m_rows.SetCapacity(nbRows);
             }
 
-            //TODO Update scrollbar
+            UpdateScrollbar();
+        }
+
+        private void UpdateScrollbar()
+        {
+            if(m_rowsData != null)
+            {
+                int steps = Mathf.Max(1, (m_rowsData.m_size - m_rows.m_size));
+
+                m_scrollbar.scrollSize = Mathf.Max(10f, height / steps);
+                m_scrollbar.minValue = 0;
+                m_scrollbar.maxValue = height - m_scrollbar.scrollSize;
+                m_scrollbar.incrementAmount = Mathf.Max(1f, height / steps);
+                UpdateScrollPosition();
+            }
+        }
+
+        private void UpdateScrollPosition()
+        {
+            int steps = Mathf.Max(1, (m_rowsData.m_size - m_rows.m_size));
+            float pos = Mathf.RoundToInt(m_pos * height / steps);
+            if (pos != Mathf.RoundToInt(m_scrollbar.value))
+                m_scrollbar.value = pos;
         }
 
 
@@ -202,7 +263,7 @@ namespace MeshInfo.GUI
 
             // Scrollbar
             m_scrollbar = AddUIComponent<UIScrollbar>();
-            m_scrollbar.width = width - 20f;
+            m_scrollbar.width = 20f;
             m_scrollbar.height = height;
             m_scrollbar.orientation = UIOrientation.Vertical;
             m_scrollbar.pivot = UIPivotPoint.BottomLeft;
@@ -233,6 +294,12 @@ namespace MeshInfo.GUI
             CheckRows();
 
             //TODO scroll event handler
+            m_scrollbar.eventValueChanged += (c, t) =>
+                {
+                    int steps = Mathf.Max(0, (m_rowsData.m_size - m_rows.m_size));
+                    int pos = Mathf.RoundToInt(m_scrollbar.value / height * steps);
+                    if (m_pos != pos) DisplayAt(pos);
+                };
         }
         #endregion
     }

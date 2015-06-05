@@ -52,6 +52,7 @@
     <Compile Include="GUI\UIMainPanel.cs" />
     <Compile Include="GUI\UITitleBar.cs" />
     <Compile Include="GUI\UIPrefabItem.cs" />
+    <Compile Include="MeshData.cs" />
     <Compile Include="MeshInfo.cs" />
     <Compile Include="GUI\UIUtils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
