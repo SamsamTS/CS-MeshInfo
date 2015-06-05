@@ -48,6 +48,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DebugUtils.cs" />
+    <Compile Include="GUI\UIFastList.cs" />
     <Compile Include="GUI\UIMainPanel.cs" />
     <Compile Include="GUI\UITitleBar.cs" />
     <Compile Include="GUI\UIPrefabItem.cs" />
