@@ -6,7 +6,7 @@ using ColossalFramework.Globalization;
 
 namespace MeshInfo.GUI
 {
-    public class UIPrefabItem : UIPanel, IRowUI
+    public class UIPrefabItem : UIPanel, IUIFastListRow
     {
         private UILabel m_name;
         private UILabel m_triangles;
