@@ -15,7 +15,8 @@ namespace MeshInfo
             LodTriangles,
             Weight,
             LodWeight,
-            TextureSize
+            TextureSize,
+            LodTextureSize
         }
 
         private PrefabInfo m_prefab;
@@ -30,7 +31,8 @@ namespace MeshInfo
                     m_prefab = value;
 
                     name = GetLocalizedName(m_prefab);
-                    textureSize =  GetTextureSize(m_prefab);
+                    textureSize = GetTextureSize(m_prefab);
+                    lodTextureSize = GetLodTextureSize(m_prefab);
 
                     GetTriangleInfo(m_prefab, out triangles, out lodTriangles, out weight, out lodWeight);
 
@@ -45,6 +47,7 @@ namespace MeshInfo
         public float weight;
         public float lodWeight;
         public Vector2 textureSize;
+        public Vector2 lodTextureSize;
         public string steamID;
 
         public static Sorting sorting = Sorting.Name;
@@ -83,6 +86,8 @@ namespace MeshInfo
                 return Mathf.RoundToInt(b.lodWeight * 100 - a.lodWeight * 100);
             if (sorting == Sorting.TextureSize)
                 return (int)(b.textureSize.x * b.textureSize.y - a.textureSize.x * a.textureSize.y);
+            if (sorting == Sorting.LodTextureSize)
+                return (int)(b.lodTextureSize.x * b.lodTextureSize.y - a.lodTextureSize.x * a.lodTextureSize.y);
 
             return 0;
         }
@@ -184,6 +189,13 @@ namespace MeshInfo
 
             if (material != null && material.mainTexture != null)
                 return new Vector2(material.mainTexture.width, material.mainTexture.height);
+
+            return Vector2.zero;
+        }
+
+        private static Vector2 GetLodTextureSize(PrefabInfo prefab)
+        {
+            Material material = null;
 
             if (prefab is BuildingInfo)
                 material = (prefab as BuildingInfo).m_lodMaterial;

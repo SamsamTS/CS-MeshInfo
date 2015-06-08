@@ -2,6 +2,7 @@
 
 using UnityEngine;
 using ColossalFramework.UI;
+using ColossalFramework.Steamworks;
 using ColossalFramework.Globalization;
 
 namespace MeshInfo.GUI
@@ -14,6 +15,7 @@ namespace MeshInfo.GUI
         private UILabel m_weight;
         private UILabel m_lodWeight;
         private UILabel m_textureSize;
+        private UILabel m_lodTextureSize;
         private UITextField m_steamID;
         private UIPanel m_background;
 
@@ -44,7 +46,7 @@ namespace MeshInfo.GUI
             isVisible = true;
             canFocus = true;
             isInteractive = true;
-            width = 670f;
+            width = 740f;
             height = 40f;
 
             m_name = AddUIComponent<UILabel>();
@@ -55,6 +57,15 @@ namespace MeshInfo.GUI
             m_name.pivot = UIPivotPoint.MiddleLeft;
             m_name.relativePosition = new Vector3(10f, 0f);
 
+            m_lodTextureSize = AddUIComponent<UILabel>();
+            m_lodTextureSize.textScale = 0.9f;
+            m_lodTextureSize.width = 70f;
+            m_lodTextureSize.height = height;
+            m_lodTextureSize.textAlignment = UIHorizontalAlignment.Center;
+            m_lodTextureSize.pivot = UIPivotPoint.MiddleCenter;
+            m_lodTextureSize.padding = new RectOffset(0, 10, 0, 0);
+            m_lodTextureSize.AlignTo(this, UIAlignAnchor.TopRight);
+
             m_textureSize = AddUIComponent<UILabel>();
             m_textureSize.textScale = 0.9f;
             m_textureSize.width = 90f;
@@ -62,7 +73,7 @@ namespace MeshInfo.GUI
             m_textureSize.textAlignment = UIHorizontalAlignment.Center;
             m_textureSize.pivot = UIPivotPoint.MiddleCenter;
             m_textureSize.padding = new RectOffset(0, 10, 0, 0);
-            m_textureSize.AlignTo(this, UIAlignAnchor.TopRight);
+            m_textureSize.relativePosition = m_lodTextureSize.relativePosition - new Vector3(90f, 0f);
 
             m_lodWeight = AddUIComponent<UILabel>();
             m_lodWeight.textScale = 0.9f;
@@ -110,6 +121,17 @@ namespace MeshInfo.GUI
             {
                 if (m_meshData.name.Contains("."))
                     m_steamID.text = m_meshData.name.Substring(0, m_meshData.name.IndexOf("."));
+            };
+
+            m_name.eventDoubleClick += (c, t) =>
+            {
+                if (Steam.IsOverlayEnabled() && !String.IsNullOrEmpty(m_steamID.text))
+                {
+                    PublishedFileId publishedFileId = new PublishedFileId((ulong)Int32.Parse(m_steamID.text));
+
+                    if (publishedFileId != PublishedFileId.invalid)
+                        Steam.ActivateGameOverlayToWorkshopItem(publishedFileId);
+                }
             };
         }
 
@@ -162,6 +184,7 @@ namespace MeshInfo.GUI
                 m_lodWeight.textColor = new Color32(255, 255, 255, 255);
 
             m_textureSize.text = (m_meshData.textureSize != Vector2.zero) ? m_meshData.textureSize.x + "x" + m_meshData.textureSize.y : "-";
+            m_lodTextureSize.text = (m_meshData.lodTextureSize != Vector2.zero) ? m_meshData.lodTextureSize.x + "x" + m_meshData.lodTextureSize.y : "-";
 
             if (isRowOdd)
             {
@@ -171,5 +194,8 @@ namespace MeshInfo.GUI
             else
                 background.backgroundSprite = null;
         }
+
+        public void Select(bool isRowOdd) { }
+        public void Deselect(bool isRowOdd) { }
     }
 }

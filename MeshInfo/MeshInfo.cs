@@ -21,7 +21,7 @@ namespace MeshInfo
         #endregion
         private static GUI.UIMainPanel m_mainPanel;
 
-        public static readonly string version = "1.2";
+        public static readonly string version = "1.3";
 
         public static bool stopLoading = false;
                 

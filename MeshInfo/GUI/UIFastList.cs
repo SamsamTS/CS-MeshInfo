@@ -7,6 +7,7 @@ namespace MeshInfo.GUI
 {
     public interface IUIFastListRow
     {
+        #region Methods to implement
         /// <summary>
         /// Method invoked very often, make sure it is fast
         /// Avoid doing any calculations, the data should be already processed any ready to display.
@@ -15,10 +16,56 @@ namespace MeshInfo.GUI
         /// <param name="isRowOdd">Use this to display a different look for your odd rows</param>
         void Display(object data, bool isRowOdd);
 
+        /// <summary>
+        /// Change the style of the selected row here
+        /// </summary>
+        /// <param name="isRowOdd">Use this to display a different look for your odd rows</param>
+        void Select(bool isRowOdd);
+        /// <summary>
+        /// Change the style of the row back from selected here
+        /// </summary>
+        /// <param name="isRowOdd">Use this to display a different look for your odd rows</param>
+        void Deselect(bool isRowOdd);
+        #endregion
+
+        #region From UIPanel
+        // No need to implement those, they are in UIPanel
+        // Those are declared here so they can be used inside UIFastList
         bool enabled { get; set; }
-        float height { get; set; }
+        Vector3 relativePosition { get; set; }
+        event MouseEventHandler eventClick;
+        #endregion
     }
 
+    /// <summary>
+    /// This component is specifically designed the handle the display of
+    /// very large amount of rows in a scrollable panel while minimizing
+    /// the impact on the performances.
+    /// 
+    /// This class will instantiate the rows for you based on the actual
+    /// height of the UIFastList and the rowHeight value provided.
+    /// 
+    /// The row class must inherit UIPanel and implement IUIFastListRow :
+    /// public class MyCustomRow : UIPanel, IUIFastListRow
+    /// 
+    /// How it works :
+    /// This class only instantiate as many rows as visible on screen (+1
+    /// extra to simulate in-between steps). Then the content of those is
+    /// updated according to what needs to be displayed by calling the
+    /// Display method declared in IUIFastListRow.
+    /// 
+    /// Provide the list of data with rowData. This data is send back to
+    /// your custom row when it needs to be displayed. For optimal
+    /// performances, make sure this data is already processed and ready
+    /// to display.
+    /// 
+    /// Creation example :
+    /// UIFastList myFastList = UIFastList.Create<MyCustomRow>(this);
+    /// myFastList.size = new Vector2(200f, 300f);
+    /// myFastList.rowHeight = 40f;
+    /// myFastList.rowData = myDataList;
+    /// 
+    /// </summary>
     public class UIFastList : UIComponent
     {
         #region Private members
@@ -27,15 +74,19 @@ namespace MeshInfo.GUI
         private FastList<IUIFastListRow> m_rows;
         private FastList<object> m_rowsData;
 
-        private Type m_listType;
+        private Type m_rowType;
         private string m_backgroundSprite;
-        private Color32 m_color;
+        private Color32 m_color = new Color32(255, 255, 255, 255);
         private float m_rowHeight = -1;
-        private int m_pos = -1;
-        private bool m_updateScroll = true;
+        private float m_pos = -1;
+        private float m_stepSize = 0;
+        private bool m_canSelect = false;
+        private int m_selectedDataId = -1;
+        private int m_selectedRowId = -1;
+        private bool m_lock = false;
+        private bool m_updateContent = true;
         #endregion
 
-        #region Public
         /// <summary>
         /// Use this to create the UIFastList.
         /// Do NOT use AddUIComponent.
@@ -48,8 +99,23 @@ namespace MeshInfo.GUI
             where T : UIPanel, IUIFastListRow
         {
             UIFastList list = parent.AddUIComponent<UIFastList>();
-            list.m_listType = typeof(T);
+            list.m_rowType = typeof(T);
             return list;
+        }
+
+        #region Public accessors
+        /// <summary>
+        /// Change the color of the background
+        /// </summary>
+        public Color32 backgroundColor
+        {
+            get { return m_color; }
+            set
+            {
+                m_color = value;
+                if (m_panel != null)
+                    m_panel.color = value;
+            }
         }
 
         /// <summary>
@@ -70,22 +136,57 @@ namespace MeshInfo.GUI
         }
 
         /// <summary>
-        /// Change the color of the background
+        /// Can rows be selected by clicking on them
+        /// Default value is false
+        /// Rows can still be selected via selectedIndex
         /// </summary>
-        public Color32 backgroundColor
+        public bool canSelect
         {
-            get { return m_color; }
+            get { return m_canSelect; }
             set
             {
-                m_color = value;
-                if (m_panel != null)
-                    m_panel.color = value;
+                if(m_canSelect != value)
+                {
+                    m_canSelect = value;
+
+                    if (m_rows == null) return;
+                    for (int i = 0; i < m_rows.m_size; i++)
+                    {
+                        if (m_canSelect)
+                            m_rows[i].eventClick += OnRowClicked;
+                        else
+                            m_rows[i].eventClick -= OnRowClicked;
+                    }
+                }
             }
         }
 
         /// <summary>
-        /// This is the list data that will be send to the IRow.Display method
+        /// Change the position in the list
+        /// Display the data at the position in the top row.
+        /// This doesn't update the list if the position stay the same
+        /// Use DisplayAt for that
+        /// </summary>
+        public float listPosition
+        {
+            get { return m_pos; }
+            set
+            {
+                if (m_rowHeight <= 0) return;
+                if (m_pos != value)
+                {
+                    float pos = Mathf.Max(Mathf.Min(value, m_rowsData.m_size - height / m_rowHeight), 0);
+                    m_updateContent = Mathf.FloorToInt(m_pos) != Mathf.FloorToInt(pos);
+                    DisplayAt(pos);
+                }
+            }
+        }
+
+        /// <summary>
+        /// This is the list of data that will be send to the IUIFastListRow.Display method
         /// Changing this list will reset the display position to 0
+        /// You can also change rowsData.m_buffer and rowsData.m_size
+        /// and refresh the display with DisplayAt method
         /// </summary>
         public FastList<object> rowsData
         {
@@ -99,14 +200,13 @@ namespace MeshInfo.GUI
                 if(m_rowsData != value)
                 {
                     m_rowsData = value;
-                    m_pos = -1;
                     DisplayAt(0);
                 }
             }
         }
 
         /// <summary>
-        /// This MUST be set, it is the height in pixel of each row
+        /// This MUST be set, it is the height in pixels of each row
         /// </summary>
         public float rowHeight
         {
@@ -122,50 +222,62 @@ namespace MeshInfo.GUI
         }
 
         /// <summary>
-        /// Change the position in the list
-        /// Display the data at the position in the top row.
-        /// This doesn't update the list if the position remind the same
-        /// Use DisplayAt for that
+        /// Currently selected row
+        /// -1 if none selected
         /// </summary>
-        public int listPosition
+        public int selectedIndex
         {
-            get { return m_pos; }
+            get { return m_selectedDataId; }
             set
             {
-                int pos = Mathf.Max(Mathf.Min(value, m_rowsData.m_size - m_rows.m_size), 0);
-                if (m_pos != pos)
-                    DisplayAt(pos);
+                if (m_rowsData == null) return;
+
+                int oldId = m_selectedDataId;
+                if (oldId >= m_rowsData.m_size) oldId = -1;
+                m_selectedDataId = Mathf.Min(Mathf.Max(-1, value), m_rowsData.m_size - 1);
+
+                int pos = Mathf.FloorToInt(m_pos);
+                int newRowId = Mathf.Max(-1, m_selectedDataId - pos);
+                if (newRowId >= m_rows.m_size) newRowId = -1;
+
+                if (newRowId >= 0 && newRowId == m_selectedRowId && !m_updateContent) return;
+
+                if (m_selectedRowId >= 0)
+                {
+                    m_rows[m_selectedRowId].Deselect((oldId % 2) == 1);
+                    m_selectedRowId = -1;
+                }
+
+                if (newRowId >= 0)
+                {
+                    m_selectedRowId = newRowId;
+                    m_rows[m_selectedRowId].Select((m_selectedDataId % 2) == 1);
+                }
+
+                if (eventSelectedIndexChanged != null && m_selectedDataId != oldId)
+                    eventSelectedIndexChanged(this, m_selectedDataId);
             }
         }
 
         /// <summary>
-        /// Display the data at the position in the top row.
-        /// This update the list even if the position remind the same
+        /// The number of pixels moved at each scroll step
+        /// When set to 0 or less, rowHeight is used instead.
         /// </summary>
-        /// <param name="pos"></param>
-        public void DisplayAt(int pos)
+        public float stepSize
         {
-            if(m_rowsData == null) return;
-
-            pos = Mathf.Max(Mathf.Min(pos, m_rowsData.m_size - m_rows.m_size), 0);
-
-            m_pos = pos;
-
-            for (int i = 0; i < m_rows.m_size; i++)
-            {
-                int dataPos = m_pos + i;
-                if (dataPos < m_rowsData.m_size)
-                {
-                    m_rows[i].Display(m_rowsData[dataPos], (dataPos % 2) == 1);
-                    m_rows[i].enabled = true;
-                }
-                else
-                    m_rows[i].enabled = false;
-            }
-
-            UpdateScrollbar();
+            get { return (m_stepSize > 0) ? m_stepSize : m_rowHeight; }
+            set { m_stepSize = value; }
         }
+        #endregion
 
+        #region Events
+        /// <summary>
+        /// Called when the currently selected row changed
+        /// </summary>
+        public event PropertyChangedEventHandler<int> eventSelectedIndexChanged;
+        #endregion
+
+        #region Public methods
         /// <summary>
         /// Clear the list
         /// </summary>
@@ -173,12 +285,48 @@ namespace MeshInfo.GUI
         {
             m_rowsData.Clear();
 
-            for(int i = 0; i < m_rows.m_size; i++)
+            for (int i = 0; i < m_rows.m_size; i++)
             {
                 m_rows[i].enabled = false;
             }
 
             UpdateScrollbar();
+        }
+
+        /// <summary>
+        /// Display the data at the position in the top row.
+        /// This update the list even if the position remind the same
+        /// </summary>
+        /// <param name="pos">Index position in the list</param>
+        public void DisplayAt(float pos)
+        {
+            if (m_rowsData == null || m_rowHeight <= 0) return;
+
+            m_pos = Mathf.Max(Mathf.Min(pos, m_rowsData.m_size - height / m_rowHeight), 0f);
+
+            for (int i = 0; i < m_rows.m_size; i++)
+            {
+                int dataPos = Mathf.FloorToInt(m_pos + i);
+                float offset = rowHeight * (m_pos + i - dataPos);
+                if (dataPos < m_rowsData.m_size)
+                {
+                    if (m_updateContent)
+                        m_rows[i].Display(m_rowsData[dataPos], (dataPos % 2) == 1);
+
+                    if (dataPos == m_selectedDataId && m_updateContent)
+                    {
+                        m_selectedRowId = i;
+                        m_rows[m_selectedRowId].Select((dataPos % 2) == 1);
+                    }
+
+                    m_rows[i].enabled = true;
+                    m_rows[i].relativePosition = new Vector3(0, i * rowHeight - offset);
+                }
+                else
+                    m_rows[i].enabled = false;
+            }
+            UpdateScrollbar();
+            m_updateContent = true;
         }
         #endregion
 
@@ -213,6 +361,8 @@ namespace MeshInfo.GUI
 
             if (m_panel == null) return;
 
+            m_panel.size = size;
+
             m_scrollbar.height = height;
             m_scrollbar.trackObject.height = height;
             m_scrollbar.AlignTo(this, UIAlignAnchor.TopRight);
@@ -224,20 +374,32 @@ namespace MeshInfo.GUI
         {
             base.OnMouseWheel(p);
 
-            m_pos -= (int)p.wheelDelta;
-            DisplayAt(m_pos);
+            if (m_stepSize > 0 && m_rowHeight > 0)
+                listPosition = m_pos - p.wheelDelta * m_stepSize / m_rowHeight;
+            else
+                listPosition = m_pos - p.wheelDelta;
         }
         #endregion
 
-        #region Private Methods
+        #region Private methods
+
+        protected void OnRowClicked(UIComponent component, UIMouseEventParameter p)
+        {
+            for(int i = 0; i< rowsData.m_size; i++)
+            {
+                if(component == (UIComponent)m_rows[i])
+                {
+                    selectedIndex = i + Mathf.FloorToInt(m_pos);
+                    return;
+                }
+            }
+        }
+
         private void CheckRows()
         {
             if (m_panel == null || m_rowHeight <= 0) return;
 
-            int nbRows = Mathf.FloorToInt(height / m_rowHeight);
-
-            m_panel.width = width;
-            m_panel.height = nbRows * m_rowHeight;
+            int nbRows = Mathf.CeilToInt(height / m_rowHeight) + 1;
 
             if (m_rows == null)
             {
@@ -250,8 +412,8 @@ namespace MeshInfo.GUI
                 // Adding missing rows
                 for (int i = m_rows.m_size; i < nbRows; i++)
                 {
-                    m_rows.Add(m_panel.AddUIComponent(m_listType) as IUIFastListRow);
-                    m_rows[i].height = rowHeight;
+                    m_rows.Add(m_panel.AddUIComponent(m_rowType) as IUIFastListRow);
+                    if(m_canSelect) m_rows[i].eventClick += OnRowClicked;
                 }
             }
             else if (m_rows.m_size > nbRows)
@@ -268,29 +430,30 @@ namespace MeshInfo.GUI
 
         private void UpdateScrollbar()
         {
-            if(m_rowsData != null)
-            {
-                int steps = Mathf.Max(1, (m_rowsData.m_size - m_rows.m_size));
+            if (m_rowsData == null || m_rowHeight <= 0) return;
 
-                float scrollSize = Mathf.Max(10f, height * m_rows.m_size / m_rowsData.m_size);
-                float amount = Mathf.Max(1f, (height - scrollSize) / steps);
+            float H = m_rowHeight * m_rowsData.m_size;
+            float scrollSize = height * height / (m_rowHeight * m_rowsData.m_size);
+            float amount = stepSize * height / (m_rowHeight * m_rowsData.m_size);
 
-                m_scrollbar.scrollSize = scrollSize;
-                m_scrollbar.minValue = 0f;
-                m_scrollbar.maxValue = height;
-                m_scrollbar.incrementAmount = amount;
-                UpdateScrollPosition();
-            }
+            m_scrollbar.scrollSize = Mathf.Max(10f, scrollSize);
+            m_scrollbar.minValue = 0f;
+            m_scrollbar.maxValue = height;
+            m_scrollbar.incrementAmount = Mathf.Max(1f, amount);
+            UpdateScrollPosition();
         }
 
         private void UpdateScrollPosition()
         {
-            if (!m_updateScroll) return;
+            if (m_lock || m_rowHeight <= 0) return;
 
-            int steps = Mathf.Max(1, (m_rowsData.m_size - m_rows.m_size));
-            float pos = Mathf.RoundToInt(m_pos * (height-m_scrollbar.scrollSize) / steps);
-            if (pos != Mathf.RoundToInt(m_scrollbar.value))
+            m_lock = true;
+
+            float pos = m_pos * (height - m_scrollbar.scrollSize) / (m_rowsData.m_size - height / m_rowHeight);
+            if (pos != m_scrollbar.value)
                 m_scrollbar.value = pos;
+
+            m_lock = false;
         }
 
 
@@ -302,11 +465,7 @@ namespace MeshInfo.GUI
             m_panel = AddUIComponent<UIPanel>();
             m_panel.size = size;
             m_panel.backgroundSprite = m_backgroundSprite;
-            //m_panel.color = m_color;
-            m_panel.autoLayout = true;
-            m_panel.autoLayoutDirection = LayoutDirection.Vertical;
-            m_panel.autoLayoutStart = LayoutStart.TopLeft;
-            m_panel.autoLayoutPadding = new RectOffset(0, 0, 0, 0);
+            m_panel.color = m_color;
             m_panel.clipChildren = true;
             m_panel.relativePosition = Vector2.zero;
 
@@ -344,11 +503,12 @@ namespace MeshInfo.GUI
 
             m_scrollbar.eventValueChanged += (c, t) =>
                 {
-                    m_updateScroll = false;
-                    int steps = Mathf.Max(0, (m_rowsData.m_size - m_rows.m_size));
-                    int pos = Mathf.RoundToInt(m_scrollbar.value / (height - m_scrollbar.scrollSize) * steps);
-                    listPosition = pos;
-                    m_updateScroll = true;
+                    if (m_lock || m_rowHeight <= 0) return;
+
+                    m_lock = true;
+
+                    listPosition = m_scrollbar.value * (m_rowsData.m_size - height / m_rowHeight) / (height - m_scrollbar.scrollSize - 1f);
+                    m_lock = false;
                 };
         }
         #endregion
