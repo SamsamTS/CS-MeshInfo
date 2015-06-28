@@ -145,7 +145,7 @@ namespace MeshInfo.GUI
             get { return m_canSelect; }
             set
             {
-                if(m_canSelect != value)
+                if (m_canSelect != value)
                 {
                     m_canSelect = value;
 
@@ -197,7 +197,7 @@ namespace MeshInfo.GUI
             }
             set
             {
-                if(m_rowsData != value)
+                if (m_rowsData != value)
                 {
                     m_rowsData = value;
                     DisplayAt(0);
@@ -213,7 +213,7 @@ namespace MeshInfo.GUI
             get { return m_rowHeight; }
             set
             {
-                if(m_rowHeight != value)
+                if (m_rowHeight != value)
                 {
                     m_rowHeight = value;
                     CheckRows();
@@ -230,7 +230,11 @@ namespace MeshInfo.GUI
             get { return m_selectedDataId; }
             set
             {
-                if (m_rowsData == null) return;
+                if (m_rowsData == null || m_rowsData.m_size == 0)
+                {
+                    m_selectedDataId = -1;
+                    return;
+                }
 
                 int oldId = m_selectedDataId;
                 if (oldId >= m_rowsData.m_size) oldId = -1;
@@ -302,6 +306,8 @@ namespace MeshInfo.GUI
         {
             if (m_rowsData == null || m_rowHeight <= 0) return;
 
+            SetupControls();
+
             m_pos = Mathf.Max(Mathf.Min(pos, m_rowsData.m_size - height / m_rowHeight), 0f);
 
             for (int i = 0; i < m_rows.m_size; i++)
@@ -320,11 +326,13 @@ namespace MeshInfo.GUI
                     }
 
                     m_rows[i].enabled = true;
-                    m_rows[i].relativePosition = new Vector3(0, i * rowHeight - offset);
                 }
                 else
                     m_rows[i].enabled = false;
+
+                m_rows[i].relativePosition = new Vector3(0, i * rowHeight - offset);
             }
+
             UpdateScrollbar();
             m_updateContent = true;
         }
@@ -385,9 +393,10 @@ namespace MeshInfo.GUI
 
         protected void OnRowClicked(UIComponent component, UIMouseEventParameter p)
         {
-            for(int i = 0; i< rowsData.m_size; i++)
+            int max = Mathf.Min(m_rowsData.m_size, m_rows.m_size);
+            for (int i = 0; i < max; i++)
             {
-                if(component == (UIComponent)m_rows[i])
+                if (component == (UIComponent)m_rows[i])
                 {
                     selectedIndex = i + Mathf.FloorToInt(m_pos);
                     return;
@@ -413,7 +422,7 @@ namespace MeshInfo.GUI
                 for (int i = m_rows.m_size; i < nbRows; i++)
                 {
                     m_rows.Add(m_panel.AddUIComponent(m_rowType) as IUIFastListRow);
-                    if(m_canSelect) m_rows[i].eventClick += OnRowClicked;
+                    if (m_canSelect) m_rows[i].eventClick += OnRowClicked;
                 }
             }
             else if (m_rows.m_size > nbRows)
@@ -463,7 +472,8 @@ namespace MeshInfo.GUI
 
             // Panel 
             m_panel = AddUIComponent<UIPanel>();
-            m_panel.size = size;
+            m_panel.width = width - 10f;
+            m_panel.height = height;
             m_panel.backgroundSprite = m_backgroundSprite;
             m_panel.color = m_color;
             m_panel.clipChildren = true;
@@ -502,14 +512,14 @@ namespace MeshInfo.GUI
             CheckRows();
 
             m_scrollbar.eventValueChanged += (c, t) =>
-                {
-                    if (m_lock || m_rowHeight <= 0) return;
+            {
+                if (m_lock || m_rowHeight <= 0) return;
 
-                    m_lock = true;
+                m_lock = true;
 
-                    listPosition = m_scrollbar.value * (m_rowsData.m_size - height / m_rowHeight) / (height - m_scrollbar.scrollSize - 1f);
-                    m_lock = false;
-                };
+                listPosition = m_scrollbar.value * (m_rowsData.m_size - height / m_rowHeight) / (height - m_scrollbar.scrollSize - 1f);
+                m_lock = false;
+            };
         }
         #endregion
     }

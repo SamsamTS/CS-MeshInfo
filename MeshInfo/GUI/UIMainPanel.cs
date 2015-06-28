@@ -29,6 +29,7 @@ namespace MeshInfo.GUI
         {
             base.Start();
 
+            name = "MeshInfo";
             backgroundSprite = "UnlockingPanel2";
             isVisible = false;
             canFocus = true;

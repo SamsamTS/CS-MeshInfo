@@ -19,9 +19,11 @@ namespace MeshInfo
             get { return "Load a save then hit Ctrl + M to get information about asset meshes"; }
         }
         #endregion
+
+        private static GameObject m_gameObject;
         private static GUI.UIMainPanel m_mainPanel;
 
-        public static readonly string version = "1.3";
+        public static readonly string version = "1.3.1";
 
         public static bool stopLoading = false;
                 
@@ -37,10 +39,12 @@ namespace MeshInfo
 
             // Creating GUI
             UIView view = UIView.GetAView();
+            m_gameObject = new GameObject("MeshInfo");
+            m_gameObject.transform.SetParent(view.transform);
 
             try
             {
-                m_mainPanel = (GUI.UIMainPanel)view.AddUIComponent(typeof(GUI.UIMainPanel));
+                m_mainPanel = m_gameObject.AddComponent<GUI.UIMainPanel>();
             }
             catch(Exception e)
             {
@@ -56,20 +60,23 @@ namespace MeshInfo
         /// </summary>
         public override void OnLevelUnloading()
         {
-            base.OnLevelUnloading();
-
-            if (m_mainPanel == null) return;
-            m_mainPanel.parent.RemoveUIComponent(m_mainPanel);
-            GameObject.Destroy(m_mainPanel);
+            try
+            {
+                if (m_mainPanel == null) return;
+                m_mainPanel.parent.RemoveUIComponent(m_mainPanel);
+                GameObject.Destroy(m_mainPanel);
+                GameObject.Destroy(m_gameObject);
+                m_mainPanel = null;
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
         }
 
         public override void OnReleased()
         {
-            base.OnReleased();
-
-            if (m_mainPanel == null) return;
-            m_mainPanel.parent.RemoveUIComponent(m_mainPanel);
-            GameObject.Destroy(m_mainPanel);
+            OnLevelUnloading();
         }
         #endregion
     }
