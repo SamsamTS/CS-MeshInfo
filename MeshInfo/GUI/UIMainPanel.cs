@@ -30,6 +30,7 @@ namespace MeshInfo.GUI
             base.Start();
 
             name = "MeshInfo";
+            atlas = UIUtils.GetAtlas("Ingame");
             backgroundSprite = "UnlockingPanel2";
             isVisible = false;
             canFocus = true;
@@ -138,6 +139,7 @@ namespace MeshInfo.GUI
 
             // Sorting direction
             m_sortDirection = AddUIComponent<UISprite>();
+            m_sortDirection.atlas = UIUtils.defaultAtlas;
             m_sortDirection.spriteName = "IconUpArrow";
             m_sortDirection.relativePosition = m_sorting.relativePosition + new Vector3(130f, 0f);
 

@@ -23,9 +23,7 @@ namespace MeshInfo
         private static GameObject m_gameObject;
         private static GUI.UIMainPanel m_mainPanel;
 
-        public static readonly string version = "1.3.1";
-
-        public static bool stopLoading = false;
+        public static readonly string version = "1.3.2";
                 
         #region LoadingExtensionBase overrides
         /// <summary>
@@ -34,23 +32,22 @@ namespace MeshInfo
         public override void OnLevelLoaded(LoadMode mode)
         {
             // Is it an actual game ?
-            if (mode != LoadMode.LoadGame && mode != LoadMode.NewGame)
-                return;
+            //if (mode != LoadMode.LoadGame && mode != LoadMode.NewGame)
+                //return;
 
             // Creating GUI
-            UIView view = UIView.GetAView();
-            m_gameObject = new GameObject("MeshInfo");
-            m_gameObject.transform.SetParent(view.transform);
 
             try
             {
+                UIView view = UIView.GetAView();
+                m_gameObject = new GameObject("MeshInfo");
+                m_gameObject.transform.SetParent(view.transform);
+
                 m_mainPanel = m_gameObject.AddComponent<GUI.UIMainPanel>();
             }
             catch(Exception e)
             {
-                stopLoading = true;
-
-                DebugUtils.Warning("Couldn't create the UI. Please relaunch the game.");
+                DebugUtils.Warning("Couldn't create the UI. Try relaunching the game.");
                 Debug.LogException(e);
             }
         }
@@ -62,21 +59,15 @@ namespace MeshInfo
         {
             try
             {
-                if (m_mainPanel == null) return;
-                m_mainPanel.parent.RemoveUIComponent(m_mainPanel);
-                GameObject.Destroy(m_mainPanel);
+                if (m_gameObject == null) return;
+
                 GameObject.Destroy(m_gameObject);
-                m_mainPanel = null;
+                m_gameObject = null;
             }
             catch (Exception e)
             {
                 Debug.LogException(e);
             }
-        }
-
-        public override void OnReleased()
-        {
-            OnLevelUnloading();
         }
         #endregion
     }

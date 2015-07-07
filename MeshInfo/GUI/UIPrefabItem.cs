@@ -28,6 +28,7 @@ namespace MeshInfo.GUI
                 if (m_background == null)
                 {
                     m_background = AddUIComponent<UIPanel>();
+                    m_background.atlas = UIUtils.defaultAtlas;
                     m_background.width = width;
                     m_background.height = 40f;
                     m_background.relativePosition = Vector2.zero;
