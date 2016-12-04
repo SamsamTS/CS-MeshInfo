@@ -23,7 +23,7 @@ namespace MeshInfo
         private static GameObject m_gameObject;
         private static GUI.UIMainPanel m_mainPanel;
 
-        public static readonly string version = "1.3.2";
+        public static readonly string version = "1.3.3";
                 
         #region LoadingExtensionBase overrides
         /// <summary>

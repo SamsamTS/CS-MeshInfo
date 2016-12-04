@@ -2,8 +2,10 @@
 
 using UnityEngine;
 using ColossalFramework.UI;
-using ColossalFramework.Steamworks;
+using ColossalFramework.PlatformServices;
 using ColossalFramework.Globalization;
+
+using UIUtils = SamsamTS.UIUtils;
 
 namespace MeshInfo.GUI
 {
@@ -28,7 +30,7 @@ namespace MeshInfo.GUI
                 if (m_background == null)
                 {
                     m_background = AddUIComponent<UIPanel>();
-                    m_background.atlas = UIUtils.defaultAtlas;
+                    m_background.atlas = UIUtils.GetAtlas("Ingame");
                     m_background.width = width;
                     m_background.height = 40f;
                     m_background.relativePosition = Vector2.zero;
@@ -126,12 +128,12 @@ namespace MeshInfo.GUI
 
             m_name.eventDoubleClick += (c, t) =>
             {
-                if (Steam.IsOverlayEnabled() && !String.IsNullOrEmpty(m_steamID.text))
+                if (PlatformService.IsOverlayEnabled() && !String.IsNullOrEmpty(m_steamID.text))
                 {
                     PublishedFileId publishedFileId = new PublishedFileId((ulong)Int32.Parse(m_steamID.text));
 
                     if (publishedFileId != PublishedFileId.invalid)
-                        Steam.ActivateGameOverlayToWorkshopItem(publishedFileId);
+                        PlatformService.ActivateGameOverlayToWorkshopItem(publishedFileId);
                 }
             };
         }

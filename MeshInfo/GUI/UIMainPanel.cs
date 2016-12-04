@@ -3,6 +3,8 @@ using ColossalFramework.UI;
 
 using System;
 
+using UIUtils = SamsamTS.UIUtils;
+
 namespace MeshInfo.GUI
 {
     public class UIMainPanel : UIPanel
@@ -139,7 +141,7 @@ namespace MeshInfo.GUI
 
             // Sorting direction
             m_sortDirection = AddUIComponent<UISprite>();
-            m_sortDirection.atlas = UIUtils.defaultAtlas;
+            m_sortDirection.atlas = UIUtils.GetAtlas("Ingame");
             m_sortDirection.spriteName = "IconUpArrow";
             m_sortDirection.relativePosition = m_sorting.relativePosition + new Vector3(130f, 0f);
 
